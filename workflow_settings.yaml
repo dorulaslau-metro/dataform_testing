@@ -1,4 +1,5 @@
 defaultProject: metro-bi-wb-inventory-s00
+defaultLocation: EU
 defaultDataset: temp_orchestration
 defaultAssertionDataset: dataform_assertions
 dataformCoreVersion: 3.0.35
