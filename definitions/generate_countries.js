@@ -22,7 +22,7 @@ countries.forEach((c) => {
         }
     }).query(bbd_operational1_XX(c));
 
-        publish(`bbd_operational2_1_${c.iso2}`, {
+        publish(`bbd_operational2_1_daily_${c.iso2}`, {
         type: "table", 
         schema: "temp_orchestration",
         bigquery: {
@@ -39,7 +39,7 @@ countries.forEach((c) => {
             //requirePartitionFilter: true
         },
         // ensure dependency on bbd_operational1_XX and bbd_operational2_1_XX
-        dependencies: [`bbd_operational1_${c.iso2}`, `bbd_operational2_1_${c.iso2}`]
+        dependencies: [`bbd_operational1_${c.iso2}`, `bbd_operational2_1_daily_${c.iso2}`]
     }).query(bbd_operational2_XX(c));
 
 
