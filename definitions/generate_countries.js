@@ -1,7 +1,7 @@
 const { countries } = require("../includes/countries");
-const { bbd_operational0_XX, bbd_operational1_XX, bbd_operational2_1_XX, bbd_operational2_XX, bbd_usage} = require("../includes/queries");
+const { bbd_operational0_XX, bbd_operational1_XX, bbd_operational2_1_XX, bbd_operational2_XX /*, bbd_usage*/} = require("../includes/queries");
 
-const t4name = (c) => `bbd_operational2_${c.iso2}`;
+// const t4name = (c) => `bbd_operational2_${c.iso2}`;
 
  
 
@@ -46,12 +46,12 @@ countries.forEach((c) => {
         
 });
 
-    publish(`bbd_usage`, {
-        type: "table",
-        schema: "temp_orchestration",
-        dependencies: countries.map((c) => t4name(c)),
-        bigquery: {
-            partitionBy: "Date",
-            //requirePartitionFilter: true
-        }
-    }).query(bbd_usage);
+    // publish(`bbd_usage`, {
+    //     type: "table",
+    //     schema: "temp_orchestration",
+    //     dependencies: countries.map((c) => t4name(c)),
+    //     bigquery: {
+    //         partitionBy: "Date",
+    //         //requirePartitionFilter: true
+    //     }
+    // }).query(bbd_usage);
