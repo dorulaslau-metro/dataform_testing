@@ -1,5 +1,7 @@
 const projectFor = (internalCode) => `metro-bi-dl-${internalCode.toLowerCase()}-prod`;
 
+const date_filter_var = `DATE_SUB(CURRENT_DATE('Europe/Bucharest'),INTERVAL 12 MONTH)`;
+
 const bbd_operational0_XX = (c) => `
 
 WITH
@@ -556,7 +558,7 @@ const bbd_operational1_XX = (c) => `
 
 WITH
   bbd_first_occurence_in_checked_aux AS (
-    SELECT * FROM metro-bi-wb-inventory-s00.temp_orchestration.bbd_operational0_${c.iso2}
+    SELECT * FROM metro-bi-wb-inventory-s00.Country_dashboards.bbd_operational0_${c.iso2}
     -- where id = 'f587c62f-42cb-482a-832d-2357bdb54841' AND storeNumber = 3
   ),
 
@@ -1892,7 +1894,7 @@ WITH
   ),
 
   missing AS (
-    SELECT * FROM metro-bi-wb-inventory-s00.temp_orchestration.bbd_operational2_1_daily_${c.iso2}
+    SELECT * FROM metro-bi-wb-inventory-s00.Country_dashboards.bbd_operational2_1_daily_${c.iso2}
     WHERE Date >= DATE('2025-01-01') -- year change
   ),
 
@@ -1921,7 +1923,7 @@ WITH
   ),
 
   rows_generated AS (
-    SELECT * FROM metro-bi-wb-inventory-s00.temp_orchestration.bbd_operational1_${c.iso2}
+    SELECT * FROM metro-bi-wb-inventory-s00.Country_dashboards.bbd_operational1_${c.iso2}
     WHERE Date >= DATE('2025-01-01') -- year change
   ),
 
