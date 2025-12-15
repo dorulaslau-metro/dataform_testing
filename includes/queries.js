@@ -5,7 +5,7 @@ const date_filter_var = `DATE_SUB(CURRENT_DATE('Europe/Bucharest'),INTERVAL 12 M
 const bbd_operational0_XX = (c) => `
 
 WITH
-  bbd_merchandise_rules_bul AS (
+  bbd_merchandise_rules_${c.internal.toLowerCase()} AS (
     SELECT * FROM metro-bi-wb-inventory-s00.Country_dashboards.bbd_merchandise_rules_all_countries
     WHERE countryCode = '${c.iso2}'
   ),
@@ -167,7 +167,7 @@ WITH
       AND SUBSTR(creationDate, 1, 10) <= CAST(CURRENT_DATE('Europe/Bucharest')-1 AS STRING)
   ),
 
-  ranked_bbd_list_bul AS (
+  ranked_bbd_list_${c.internal.toLowerCase()} AS (
     SELECT
       countryCode, salesLine, storeNumber,
       bbdRuleId,
@@ -188,10 +188,10 @@ WITH
       AND SUBSTR(creationDate, 1, 10) <= CAST(CURRENT_DATE('Europe/Bucharest')-1 AS STRING)
   ),
 
-  bbd_list_bul AS (
+  bbd_list_${c.internal.toLowerCase()} AS (
     SELECT
       * EXCEPT (rn)
-    FROM ranked_bbd_list_bul
+    FROM ranked_bbd_list_${c.internal.toLowerCase()}
     WHERE
       rn = 1
   ),
@@ -210,7 +210,7 @@ WITH
       AND DATE(creationDate) <= (CURRENT_DATE('Europe/Bucharest')-1)
   ),
 
-  bbd_checked_open_done_bul AS (
+  bbd_checked_open_done_${c.internal.toLowerCase()} AS (
     SELECT * EXCEPT (rn) FROM (
       SELECT
         ROW_NUMBER() OVER (PARTITION BY storeNumber, bbdCheckId, status ORDER BY TIMESTAMP(changeDate) ASC, TIMESTAMP(dana_ingestion_timestamp) ASC) AS rn,
@@ -219,7 +219,7 @@ WITH
     WHERE rn = 1
   ),
 
-  bbd_checked_bul AS (
+  bbd_checked_${c.internal.toLowerCase()} AS (
     SELECT * EXCEPT (type) FROM (
     SELECT *,
       ROW_NUMBER() OVER (PARTITION BY storeNumber, bbdCheckId, DATE(TIMESTAMP(changeDate)), type ORDER BY TIMESTAMP(changeDate) DESC, TIMESTAMP(dana_ingestion_timestamp) DESC) AS rn
@@ -236,12 +236,12 @@ WITH
         WHEN creationUser LIKE '%BBD%' THEN creationUser
         ELSE 'User'
       END AS creationUser2
-    FROM bbd_checked_open_done_bul
+    FROM bbd_checked_open_done_${c.internal.toLowerCase()}
     )))
     WHERE rn=1
   ),
 
-  bbd_checked_aux_bul AS (
+  bbd_checked_aux_${c.internal.toLowerCase()} AS (
     SELECT
       *,
       LAG(status) OVER (PARTITION BY storeNumber, bbdCheckId
@@ -250,10 +250,10 @@ WITH
         ORDER BY TIMESTAMP(changeDate) ASC, TIMESTAMP(dana_ingestion_timestamp) ASC) AS nextStatus,
       LEAD(quantity) OVER (PARTITION BY storeNumber, bbdCheckId
         ORDER BY TIMESTAMP(changeDate) ASC, TIMESTAMP(dana_ingestion_timestamp) ASC) AS nextQuantity,
-    FROM bbd_checked_bul
+    FROM bbd_checked_${c.internal.toLowerCase()}
   ),
 
-  bl_joined_bmr_bul AS (
+  bl_joined_bmr_${c.internal.toLowerCase()} AS (
     SELECT
       bl.countryCode, bl.salesLine, bl.storeNumber,
       bl.bbdRuleId, bl.id, bl.quantity,
@@ -267,15 +267,15 @@ WITH
       MIN(GREATEST(DATE(bl.changeDate), EXTRACT(DATE FROM PARSE_DATETIME('%Y-%m-%d', bl.bestBeforeDate)) - bmr.gracePeriod))
         OVER (PARTITION BY bl.storeNumber, bl.id) AS dateWhenFirstlyNeededToBeRemoved -- grace period might
           -- have been already started, but it doesn't matter - because the article might not yet be found in bbd_list
-    FROM bbd_list_bul bl
-    INNER JOIN bbd_merchandise_rules_bul bmr ON
+    FROM bbd_list_${c.internal.toLowerCase()} bl
+    INNER JOIN bbd_merchandise_rules_${c.internal.toLowerCase()} bmr ON
       bmr.countryCode = bl.countryCode 
       AND bmr.ruleId = bl.bbdRuleId AND (bmr.storeNumber IS NULL OR bl.storeNumber = bmr.storeNumber)
       AND bmr.activeFrom <= TIMESTAMP(bl.creationDate) AND TIMESTAMP(bl.creationDate) <= bmr.activeTo
       AND bmr.active = true
   ),
 
-  bl_joined_bmr_joined_bc_bul AS (
+  bl_joined_bmr_joined_bc_${c.internal.toLowerCase()} AS (
     SELECT
       bl_bmr.countryCode, bl_bmr.salesLine, bl_bmr.storeNumber,
       bl_bmr.bbdRuleId,
@@ -323,8 +323,8 @@ WITH
       bc.previousStatus,
       bc.nextStatus,
       bl_bmr.lastChangeDateWhenBBDStockZeroANDdeleted,
-    FROM bl_joined_bmr_bul bl_bmr
-    LEFT JOIN bbd_checked_aux_bul bc ON
+    FROM bl_joined_bmr_${c.internal.toLowerCase()} bl_bmr
+    LEFT JOIN bbd_checked_aux_${c.internal.toLowerCase()} bc ON
 
       bl_bmr.salesLine = bc.salesLine
       AND bl_bmr.storeNumber = bc.storeNumber
@@ -362,7 +362,7 @@ WITH
       * EXCEPT (statusBbdChecked, bbdCheckId, quantity, quantity_checked, bc_not_null_and_different, bc_different, 
         isChecked, isNotFound, isRemoved, creationUserBC, creationUser2, nextStatus, changeDateBC)
     -- de completat cu coloanele finale ca sa pot face union all
-    FROM bl_joined_bmr_joined_bc_bul
+    FROM bl_joined_bmr_joined_bc_${c.internal.toLowerCase()}
     WHERE
       NOT (lastLogicallyDeleted = true
            AND bbdCheckId IS NULL) -- id is not deleted (so ofc it doesn't appear in bbd_checked) or it appears in bbd_checked
@@ -389,7 +389,7 @@ WITH
           ROW_NUMBER() OVER (PARTITION BY bl_bmr_bc.storeNumber, bl_bmr_bc.id ORDER BY bc.changeDate DESC, bc.status ASC) AS rn
             -- very important that it's ordered by status also, otherwise we get random results when changeDate is identical within the same
             -- partition, like obtaining bbds actioned when in reality there were no actions
-        FROM bl_joined_bmr_joined_bc_bul bl_bmr_bc
+        FROM bl_joined_bmr_joined_bc_${c.internal.toLowerCase()} bl_bmr_bc
         LEFT JOIN bc ON
           bl_bmr_bc.storeNumber = bc.storeNumber
           AND bl_bmr_bc.subsystemArticleNumber = bc.subsystemArticleNumber
@@ -467,12 +467,12 @@ WITH
     FROM joined_by_bbd
   ),
 
-  bl_joined_bmr_joined_bc_bul_intermed AS (
+  bl_joined_bmr_joined_bc_${c.internal.toLowerCase()}_intermed AS (
     SELECT * FROM joined_by_id UNION ALL
     SELECT * FROM joined_by_bbd_checked_cases
   ),
 
-  -- bl_joined_bmr_joined_bc_bul_intermed AS (
+  -- bl_joined_bmr_joined_bc_${c.internal.toLowerCase()}_intermed AS (
   --   SELECT
   --     countryCode, salesLine, storeNumber, bbdRuleId,
   --     id AS bbdCheckId, id, 0 AS quantity,
@@ -485,21 +485,21 @@ WITH
   --     creationDateBL, creationUserBL, creationUserBL AS creationUserBC, changeUserBL, creationUserBL AS creationUser2,
   --     checkUser,  logicallyDeleted, lastLogicallyDeleted, lastChangeDate, departmentNumber, mainMerchandiseGroup,
   --     merchandiseGroup, merchandiseSubgroup, previousStatus, nextStatus, lastChangeDateWhenBBDStockZeroANDdeleted
-  --   FROM bl_joined_bmr_joined_bc_bul
+  --   FROM bl_joined_bmr_joined_bc_${c.internal.toLowerCase()}
   --   WHERE bbdCheckId IS NULL AND lastLogicallyDeleted = true   ------- pe aici ar trebui sa schimb pentru situatiile in care 
   --   -- user-ul da remove from shelf, dar mai exista articolul cu acelasi bbd si in actions, si ce se intampla in bbd_checked
   --   -- e ca doar se updateaza cantitatea. desi eu imi amintesc ca am facut asta..sa ma mai uit. notita pt luni 24.02.2025
   --   UNION ALL
-  --   SELECT * FROM bl_joined_bmr_joined_bc_bul
+  --   SELECT * FROM bl_joined_bmr_joined_bc_${c.internal.toLowerCase()}
   --   WHERE NOT (bbdCheckId IS NULL AND lastLogicallyDeleted = true)
   -- ),
 
-  bl_joined_bmr_joined_bc2_bul AS (
-    SELECT * FROM bl_joined_bmr_joined_bc_bul_intermed
+  bl_joined_bmr_joined_bc2_${c.internal.toLowerCase()} AS (
+    SELECT * FROM bl_joined_bmr_joined_bc_${c.internal.toLowerCase()}_intermed
     -- WHERE
     --   bbdCheckID IS NULL OR id = bbdCheckId
     -- UNION ALL
-    -- SELECT * FROM bl_joined_bmr_joined_bc_bul_intermed
+    -- SELECT * FROM bl_joined_bmr_joined_bc_${c.internal.toLowerCase()}_intermed
     -- WHERE
     --   bbdCheckId IS NULL OR (id != bbdCheckId AND dateEnteringGracePeriod <= DATE(changeDateBC))
   ),
@@ -516,7 +516,7 @@ WITH
       SELECT
         *,
         MIN(TIMESTAMP(changeDateBC)) OVER (PARTITION BY storeNumber, id, statusBbdChecked) AS referenceTimestamp
-      FROM bl_joined_bmr_joined_bc2_bul
+      FROM bl_joined_bmr_joined_bc2_${c.internal.toLowerCase()}
     )
   ),
 
@@ -562,7 +562,7 @@ WITH
     -- where id = 'f587c62f-42cb-482a-832d-2357bdb54841' AND storeNumber = 3
   ),
 
-  bbd_merchandise_rules_bul AS (
+  bbd_merchandise_rules_${c.internal.toLowerCase()} AS (
     SELECT * FROM metro-bi-wb-inventory-s00.Country_dashboards.bbd_merchandise_rules_all_countries
     WHERE countryCode = '${c.iso2}'
   ),
@@ -570,7 +570,7 @@ WITH
   lld3 AS (
     SELECT DISTINCT storeNumber, id FROM (
       SELECT bl.storeNumber, bl.id FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_list\` bl
-      INNER JOIN bbd_merchandise_rules_bul bmr ON
+      INNER JOIN bbd_merchandise_rules_${c.internal.toLowerCase()} bmr ON
         bmr.countryCode = bl.countryCode 
         AND bmr.ruleId = bl.bbdRuleId AND (bmr.storeNumber IS NULL OR bl.storeNumber = bmr.storeNumber)
         AND bmr.activeFrom <= TIMESTAMP(bl.creationDate) AND TIMESTAMP(bl.creationDate) <= bmr.activeTo
@@ -739,7 +739,7 @@ WITH
       AND SUBSTR(creationDate, 1, 10) <= CAST(CURRENT_DATE('Europe/Bucharest')-1 AS STRING)
   ),
 
-  ranked_bbd_list_bul AS (
+  ranked_bbd_list_${c.internal.toLowerCase()} AS (
     SELECT
       countryCode, salesLine, storeNumber,
       bbdRuleId,
@@ -757,7 +757,7 @@ WITH
       AND SUBSTR(creationDate, 1, 10) <= CAST(CURRENT_DATE('Europe/Bucharest')-1 AS STRING)
   ),
 
-  bbd_checked_open_done_bul AS (
+  bbd_checked_open_done_${c.internal.toLowerCase()} AS (
     SELECT * EXCEPT (rn) FROM (
       SELECT
         ROW_NUMBER() OVER (
@@ -771,7 +771,7 @@ WITH
     WHERE rn = 1
   ),
 
-  bbd_checked_bul AS (
+  bbd_checked_${c.internal.toLowerCase()} AS (
     SELECT * EXCEPT (type) FROM (
       SELECT
         *,
@@ -792,14 +792,14 @@ WITH
               WHEN creationUser LIKE '%BBD%' THEN creationUser
               ELSE 'User'
             END AS creationUser2
-          FROM bbd_checked_open_done_bul
+          FROM bbd_checked_open_done_${c.internal.toLowerCase()}
         )
       )
     )
     WHERE rn = 1
   ),
 
-  bbd_checked_aux_bul AS (
+  bbd_checked_aux_${c.internal.toLowerCase()} AS (
     SELECT
       *,
       LAG(status) OVER (PARTITION BY storeNumber, bbdCheckId
@@ -808,10 +808,10 @@ WITH
         ORDER BY TIMESTAMP(changeDate) ASC, TIMESTAMP(dana_ingestion_timestamp) ASC) AS nextStatus,
       LEAD(quantity) OVER (PARTITION BY storeNumber, bbdCheckId
         ORDER BY TIMESTAMP(changeDate) ASC, TIMESTAMP(dana_ingestion_timestamp) ASC) AS nextQuantity,
-    FROM bbd_checked_bul
+    FROM bbd_checked_${c.internal.toLowerCase()}
   ),
 
-  bl_joined_bmr_joined_bc_joined_bc_bul AS (
+  bl_joined_bmr_joined_bc_joined_bc_${c.internal.toLowerCase()} AS (
       SELECT
         * EXCEPT (statusBbdChecked, changeDateBC, checkUser),
         statusBbdChecked, changeDateBC,
@@ -823,7 +823,7 @@ WITH
         bc.status AS statusBbdChecked, bc.changeDate AS changeDateBC,
         bc.checkUser
       FROM bbd_first_occurence_in_checked_aux bl_bmr_bc
-      INNER JOIN bbd_checked_aux_bul bc ON
+      INNER JOIN bbd_checked_aux_${c.internal.toLowerCase()} bc ON
         bl_bmr_bc.salesLine = bc.salesLine
         AND bl_bmr_bc.storeNumber = bc.storeNumber
         AND bl_bmr_bc.timestampWhenAddedToCart <= TIMESTAMP(bc.changeDate)
@@ -837,7 +837,7 @@ WITH
         OR (bc.status = 'DONE' AND bc.quantity = 0)))
   ),
 
-  bl_joined_bmr_joined_bc_joined_bc_aux0_bul AS (
+  bl_joined_bmr_joined_bc_joined_bc_aux0_${c.internal.toLowerCase()} AS (
     SELECT
       MAX(statusMapped) OVER (PARTITION BY storeNumber, id) AS lastStatus,
       *
@@ -845,24 +845,24 @@ WITH
       SELECT
         CASE WHEN statusBbdChecked = 'OPEN' THEN 1 ELSE 2 END AS statusMapped,
         *
-      FROM bl_joined_bmr_joined_bc_joined_bc_bul
+      FROM bl_joined_bmr_joined_bc_joined_bc_${c.internal.toLowerCase()}
     )
   ),
 
-  bl_joined_bmr_joined_bc_joined_bc_aux_bul AS (
+  bl_joined_bmr_joined_bc_joined_bc_aux_${c.internal.toLowerCase()} AS (
       SELECT
         * EXCEPT (lastStatus, dateWhenNotFound),
         CASE WHEN MAX(TIMESTAMP(changeDateBC)) OVER (PARTITION BY storeNumber, id) IS NULL THEN DATE(lastChangeDate) END AS dateWhenNotFound,
         CASE WHEN MAX(TIMESTAMP(changeDateBC)) OVER (PARTITION BY storeNumber, id) IS NOT NULL
           THEN MAX(TIMESTAMP(changeDateBC)) OVER (PARTITION BY storeNumber, id) END AS timestampWhenActioned,
-      FROM bl_joined_bmr_joined_bc_joined_bc_aux0_bul
+      FROM bl_joined_bmr_joined_bc_joined_bc_aux0_${c.internal.toLowerCase()}
       WHERE lastStatus = 2 --'DONE'
       UNION ALL
       SELECT * EXCEPT (lastStatus, dateWhenNotFound),
       dateWhenNotFound
       ,
         NULL AS timestampWhenActioned
-      FROM bl_joined_bmr_joined_bc_joined_bc_aux0_bul
+      FROM bl_joined_bmr_joined_bc_joined_bc_aux0_${c.internal.toLowerCase()}
       WHERE lastStatus = 1 -- = 'OPEN'
   ),
 
@@ -993,7 +993,7 @@ WITH
         NULL timestampWhenActioned,
         statusBbdChecked AS status,
         creationUser2, dateWhenNotFound, timestampWhenNotFound, checkUser
-      FROM bl_joined_bmr_joined_bc_joined_bc_aux_bul bbd2
+      FROM bl_joined_bmr_joined_bc_joined_bc_aux_${c.internal.toLowerCase()} bbd2
       INNER JOIN calendar ON
         COALESCE(bbd2.dateWhenAddedToCart, bbd2.dateWhenNotFound) <= calendar.calendarDate
         AND 
@@ -1019,7 +1019,7 @@ WITH
         timestampWhenActioned,
         statusBbdChecked AS status,
         creationUser2, dateWhenNotFound, timestampWhenNotFound, checkUser
-      FROM bl_joined_bmr_joined_bc_joined_bc_aux_bul bbd2
+      FROM bl_joined_bmr_joined_bc_joined_bc_aux_${c.internal.toLowerCase()} bbd2
       INNER JOIN calendar ON
         COALESCE(bbd2.dateWhenAddedToCart, bbd2.dateWhenNotFound) <= calendar.calendarDate
         AND calendar.calendarDate <= DATE(bbd2.timestampWhenActioned)
@@ -1044,19 +1044,19 @@ const bbd_operational2_1_XX = (c) => `
 
 
 WITH
-  bbd_merchandise_rules_bul AS (
+  bbd_merchandise_rules_${c.internal.toLowerCase()} AS (
     SELECT * FROM metro-bi-wb-inventory-s00.Country_dashboards.bbd_merchandise_rules_all_countries
     WHERE countryCode = '${c.iso2}'
   ),
 
   -- bbd_articles AS (
   --   SELECT DISTINCT bl.storeNumber, articleNumber, bundleNumber, variantNumber FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_list\` bl
-  --   INNER JOIN bbd_merchandise_rules_bul bmr ON
+  --   INNER JOIN bbd_merchandise_rules_${c.internal.toLowerCase()} bmr ON
   --     (bmr.storeNumber = -1 OR bl.storeNumber = bmr.storeNumber)
   --     AND bl.bbdRuleId = bmr.ruleId
   -- ),
 
-  ranked_bbd_list_bul AS (
+  ranked_bbd_list_${c.internal.toLowerCase()} AS (
     SELECT
       countryCode, salesLine, storeNumber,
       bbdRuleId, --id,
@@ -1076,16 +1076,16 @@ WITH
       AND SUBSTR(creationDate, 1, 10) <= CAST(CURRENT_DATE('Europe/Bucharest')-1 AS STRING)
   ),
 
-  bbd_list_bul AS (
+  bbd_list_${c.internal.toLowerCase()} AS (
     SELECT
       * EXCEPT (rn)
-    FROM ranked_bbd_list_bul
+    FROM ranked_bbd_list_${c.internal.toLowerCase()}
     -- WHERE
     --   rn = 1
       -- AND (changeUser IS NULL OR changeUser != 'BBDStockZero') -- changed on 05.09.2024
   ),
 
-  bl_joined_bmr_bul AS (
+  bl_joined_bmr_${c.internal.toLowerCase()} AS (
     SELECT
       bl.countryCode, bl.salesLine, bl.storeNumber,
       bl.bbdRuleId, bl.id, bl.quantity,
@@ -1109,8 +1109,8 @@ WITH
       MIN(GREATEST(DATE(bl.changeDate), EXTRACT(DATE FROM PARSE_DATETIME('%Y-%m-%d', bl.bestBeforeDate)) - bmr.gracePeriod))
         OVER (PARTITION BY bl.storeNumber, bl.id) AS dateWhenFirstlyNeededToBeRemoved -- grace period might
           -- have been already started, but it doesn't matter - because the article might not yet be found in bbd_list
-    FROM bbd_list_bul bl
-    INNER JOIN bbd_merchandise_rules_bul bmr ON
+    FROM bbd_list_${c.internal.toLowerCase()} bl
+    INNER JOIN bbd_merchandise_rules_${c.internal.toLowerCase()} bmr ON
       bmr.countryCode = bl.countryCode 
       AND bmr.ruleId = bl.bbdRuleId AND (bmr.storeNumber IS NULL OR bl.storeNumber = bmr.storeNumber)
       AND bmr.activeFrom <= TIMESTAMP(bl.creationDate) AND TIMESTAMP(bl.creationDate) <= bmr.activeTo
@@ -1124,7 +1124,7 @@ WITH
         MAX(hasBbd) OVER (PARTITION BY bm.storeNumber, bm.subsystemArticleNumber, bm.missingDate, bm.changeDate
           ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS wasBbdAdded,
       FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_missing\` bm
-      INNER JOIN bbd_merchandise_rules_bul bmr ON
+      INNER JOIN bbd_merchandise_rules_${c.internal.toLowerCase()} bmr ON
         bmr.countryCode = bm.countryCode 
         AND bmr.ruleId = bm.bbdRuleId AND (bmr.storeNumber IS NULL OR bm.storeNumber = bmr.storeNumber)
         AND bmr.activeFrom <= TIMESTAMP(bm.creationDate) AND TIMESTAMP(bm.creationDate) <= bmr.activeTo
@@ -1302,7 +1302,7 @@ WITH
       --   COALESCE(bl.bestBeforeDate, 'NO_BBD') AS PK
     FROM bm_bc bm
     -- LEFT JOIN \`${projectFor(c.internal)}.ingest_inventory.bbd_list\` bl ON
-    LEFT JOIN bbd_list_bul bl ON
+    LEFT JOIN bbd_list_${c.internal.toLowerCase()} bl ON
       bm.storeNumber = bl.storeNumber
       AND bm.subsystemArticleNumber = bl.subsystemArticleNumber
       AND ABS(TIMESTAMP_DIFF(TIMESTAMP(bm.changeDate), TIMESTAMP(bl.creationDate), second)) IN (0, 1)
@@ -1707,13 +1707,12 @@ WITH
       COALESCE(bm.merchandiseSubgroup, bmr.merchandiseSubgroup) AS merchandiseSubgroup,
       bmr.gracePeriod
     FROM h bm
-    INNER JOIN bbd_merchandise_rules_bul bmr ON
+    INNER JOIN bbd_merchandise_rules_${c.internal.toLowerCase()} bmr ON
       bmr.countryCode = bm.countryCode 
       AND bmr.ruleId = bm.bbdRuleId AND (bmr.storeNumber IS NULL OR bm.storeNumber = bmr.storeNumber)
       AND bmr.activeFrom <= TIMESTAMP(bm.creationDate) AND TIMESTAMP(bm.creationDate) <= bmr.activeTo
       AND bmr.active = true
   ),
-  -- -bul- _bul
 
 
 
@@ -1888,7 +1887,7 @@ SELECT * FROM missing
 const bbd_operational2_XX = (c) => `
 
 WITH
-  bbd_merchandise_rules_bul AS (
+  bbd_merchandise_rules_${c.internal.toLowerCase()} AS (
     SELECT * FROM metro-bi-wb-inventory-s00.Country_dashboards.bbd_merchandise_rules_all_countries
     WHERE countryCode = '${c.iso2}'
   ),
@@ -2004,7 +2003,7 @@ WITH
     --   s.rn = 1
   ),
 
-  bl_joined_bc_joined_bmr_bul_aux_syst1_removed_actions AS (
+  bl_joined_bc_joined_bmr_${c.internal.toLowerCase()}_aux_syst1_removed_actions AS (
     SELECT
       b.countryCode, b.salesLine, b.storeNumber,
       b.departmentNumber, b.mainMerchandiseGroup, b.merchandiseGroup, b.merchandiseSubgroup,
@@ -2043,18 +2042,18 @@ WITH
       AND b.storeNumber = ss.locationId
   ),
 
-  bl_joined_bc_joined_bmr_bul_aux_syst2_removed_actions AS (
+  bl_joined_bc_joined_bmr_${c.internal.toLowerCase()}_aux_syst2_removed_actions AS (
     SELECT *
     FROM (
       SELECT 
         *,
         ROW_NUMBER() OVER (PARTITION BY storeNumber, articleNumber, variantNumber, bundleNumber, bestBeforeDate, id, Date, status ORDER BY systStockDate DESC) AS rn
-      FROM bl_joined_bc_joined_bmr_bul_aux_syst1_removed_actions
+      FROM bl_joined_bc_joined_bmr_${c.internal.toLowerCase()}_aux_syst1_removed_actions
     )
     WHERE rn = 1
   ),
 
-  bl_joined_bc_joined_bmr_bul_aux_mado1_removed_actions AS (
+  bl_joined_bc_joined_bmr_${c.internal.toLowerCase()}_aux_mado1_removed_actions AS (
     SELECT 
       b.countryCode, b.salesLine, b.storeNumber,
       b.departmentNumber, b.mainMerchandiseGroup, b.merchandiseGroup, b.merchandiseSubgroup,
@@ -2077,7 +2076,7 @@ WITH
       b.creationDateBL, b.creationUserBL, b.creationUserBC,
       b.creationUser2,
       b.logicallyDeleted, b.bbdSource
-    FROM bl_joined_bc_joined_bmr_bul_aux_syst2_removed_actions b
+    FROM bl_joined_bc_joined_bmr_${c.internal.toLowerCase()}_aux_syst2_removed_actions b
     LEFT JOIN markdown_stock_removed_actions ms ON
       b.articleNumber = ms.articleNo
       AND b.bundleNumber = ms.bundleNo
@@ -2092,12 +2091,12 @@ WITH
       AND b.storeNumber = ms.locationId
   ),
 
-  bl_joined_bc_joined_bmr_bul_aux_mado2_removed_actions AS (
+  bl_joined_bc_joined_bmr_${c.internal.toLowerCase()}_aux_mado2_removed_actions AS (
     SELECT * EXCEPT (rn) FROM (
       SELECT 
         *,
         ROW_NUMBER() OVER (PARTITION BY storeNumber, articleNumber, variantNumber, bundleNumber, bestBeforeDate, id, Date, status ORDER BY madoStockDate DESC) AS rn
-      FROM bl_joined_bc_joined_bmr_bul_aux_mado1_removed_actions
+      FROM bl_joined_bc_joined_bmr_${c.internal.toLowerCase()}_aux_mado1_removed_actions
     )
     WHERE rn = 1
   ),
@@ -2150,7 +2149,7 @@ WITH
         END AS userOtherBbdReasons,
         a.art_name,
         bm.*
-      FROM bl_joined_bc_joined_bmr_bul_aux_mado2_removed_actions bm
+      FROM bl_joined_bc_joined_bmr_${c.internal.toLowerCase()}_aux_mado2_removed_actions bm
       LEFT JOIN \`${projectFor(c.internal)}.cc_dwh.dw_article\` a ON
         bm.articleNumber = a.art_no
       WHERE
@@ -2854,7 +2853,7 @@ FROM (
   bl_rules AS (
     SELECT bll.storeNumber, id, bbdRuleId, DATE(MIN(bll.changeDate)) AS changeDate, bmrr.gracePeriod
     FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_list\` bll
-    INNER JOIN bbd_merchandise_rules_bul bmrr ON
+    INNER JOIN bbd_merchandise_rules_${c.internal.toLowerCase()} bmrr ON
     bmrr.ruleId = bll.bbdRuleId
     WHERE DATE(PARTITIONTIME) >= DATE('2025-01-01') -- year change
     GROUP BY ALL
@@ -2886,7 +2885,157 @@ UNION ALL
 SELECT * EXCEPT (Grace_period, bbdRuleId), Grace_period FROM op2_final WHERE Tool IS NULL OR Tool IN ('bbd_missing', 'bbd_added')
 `;
 
+// const gin_operational_XX = (c) => `
+// select a.*, 
+// b.Suppliers_type,b.Supplier_SSCC,b.date_from as SSCC_status_date_from,
+// CONCAT(a.Store_no,'. ', c.store_desc)  as Store_name, 
+// d.is_platform,d.supplier_name, d.eng_supplier_name_without_special_characters,
+// (CASE
+//         WHEN a.Date > c.MS_penetration_date THEN 'Stores activated in MStore'
+//         ELSE 'Stores active only in MMS'
+//     END) AS Stores_Penetration,
+// (CASE
+//         WHEN a.Date > m.MS_integration_date THEN 'GR types available in MStore'
+//         ELSE 'GR types available only in MMS'
+//     END) AS GR_types_Integration,
+// xx.tunit_no,xx.tunits_pallet,xx.date_from, xx.date_to
+// from
 
+// (SELECT 
+// gr_no,gr_id,
+// CONCAT(gr_no,store_no) as GR_PK, gr_id as GR_FK,
+// CONCAT(gr_no,store_no,(article_no*1000000+variant*1000+bundle_no)) as Article_PK,
+// '${c.iso2}' as Country,
+// cast(SUBSTR(gr_creation_date, 1, 10) As DATE FORMAT 'yyyy-mm-dd') as Date,
+// cast(SUBSTR(gr_validation2_date, 1, 10) As DATE FORMAT 'yyyy-mm-dd') as Validation_Date,
+// store_no as Store_no, 
+// (case when gr_creation_source=5 then 'MStore' else 'MMS' end) as Tool,
+// 'mw_kpi_goods_receiving'as Data_source,
+// (case when gr_creation_source=1 then 'GR created manually in MMS ST'
+//  when gr_creation_source= 2 then 'GR in MMS ST Mobile'
+//  when gr_creation_source=3 then 'SSCC GR MMS ST Mobile'
+//  when gr_creation_source=4 then 'GR automatically (including DESADV, IST from, GRs from 3PL, GRC from IC)'
+//  when gr_creation_source=5 then ' GR done in MStore GIN'
+//  else null end) as GR_Creation_source,
+// gr_type as GR_type_no, 
+// (case 
+// when gr_type = 1 then '1. Pool GR' 
+// when gr_type = 10 then '10. Transf. to Consignment'
+// when gr_type = 11 then '11. Transf. from Consignment'
+// when gr_type = 12 then '12. Credit/Debit note for Goods'
+// when gr_type = 14 then '14. GRC Consignment'
+// when gr_type = 15 then '15. Pool GR Consignment'
+// when gr_type = 17 then '17. Goods Issue'
+// when gr_type = 2 then '2. Manual GR'
+// when gr_type = 3 then '3. Transfer to'
+// when gr_type = 4 then '4. Transfer from'
+// when gr_type = 5 then '5. Return'
+// when gr_type = 6 then '6. GRC'
+// when gr_type = 7 then '7. Correction'
+// when gr_type = 8 then '8. Manual Consignment'
+// when gr_type = 9 then '9. Return Consignment'
+// else cast(gr_type as string)||". Missing label" end) as GR_type_name,
+// (article_no*1000000+variant*1000+bundle_no) as Article_id,
+// article_no,
+// bundle_no,
+// gr_quantity as GoodsReceiving_quantity,
+// order_quantity as Order_quantity, 
+// dn_quantity as DeliveryNote_quantity, 
+// supplier_no as Supplier_no,
+// ls_no as dn_no_fk, pos_no as Position_no,
+// store_id,
+// PARTITIONTIME
+// FROM
+// (WITH ranked_mms AS (
+// SELECT pkc.*, RANK() OVER (PARTITION BY pkc.gr_no||pkc.store_no||pkc.article_no ORDER BY dana_ingestion_timestamp DESC) AS rank
+//     FROM metro-bi-dl-${c.internal.toLowerCase()}-prod.ingest_mmsstore_stgr.mw_kpi_goods_receiving pkc
+//        )
+// SELECT
+// DISTINCT
+// *
+// FROM ranked_mms
+// WHERE rank = 1) where cast(SUBSTR(gr_creation_date, 1, 10) As DATE FORMAT 'yyyy-mm-dd')>= date("2023-10-22") 
+//  ) a 
+// left join
+// (WITH LatestDates AS (
+//     SELECT
+//         suppl_no,
+//         company_hier_id,
+//         suppl_edi_type_cd,
+//         suppl_sscc_cd,
+//         suppl_edi_status_cd,
+//         date_from,
+//         ROW_NUMBER() OVER (
+//             PARTITION BY suppl_no, company_hier_id
+//             ORDER BY date_from DESC, CASE WHEN suppl_edi_type_cd = 'A0' THEN 1 WHEN suppl_edi_type_cd = '40' then 2 ELSE 3 END
+//         ) AS rn
+//     FROM metro-bi-dl-${c.internal.toLowerCase()}-prod.cc_dwh.dw_suppl_am_co_per_info2 
+// )
+// SELECT
+//     suppl_no,
+//     company_hier_id,
+//     date_from,
+//     CASE
+//         WHEN suppl_sscc_cd = 1 THEN 'Sending SSCC'
+//         WHEN suppl_sscc_cd = 0 THEN 'Not sending SSCC'
+//         ELSE NULL
+//     END AS Supplier_SSCC,
+//     CASE
+//         WHEN suppl_edi_type_cd = 'A0' AND suppl_edi_status_cd = 'P' THEN 'EDI supplier:Delivery dispatch'
+//         WHEN suppl_edi_type_cd = '40' OR (suppl_edi_type_cd = 'A0' AND suppl_edi_status_cd <> 'P') THEN 'EDI supplier:Order dispatch'
+//         ELSE 'non-EDI supplier'
+//     END AS Suppliers_type
+// FROM LatestDates
+// WHERE rn = 1) b on a.Supplier_no=b.suppl_no and a.store_id=b.company_hier_id 
+// left join
+// (WITH pallets AS (
+//     SELECT
+//         art_no,
+//         tunit_no,
+//         tunits_pallet,
+//          date_from,date_to,
+//        ROW_NUMBER() OVER (
+//             PARTITION BY art_no, tunit_no
+//             ORDER BY date_from DESC
+//         ) AS rankx
+//     FROM metro-bi-dl-${c.internal.toLowerCase()}-prod.cc_dwh.dw_art_tu_per_info
+// )
+// SELECT
+//      art_no,
+//         tunit_no,
+//         tunits_pallet,
+//          date_from, date_to
+// FROM pallets
+// WHERE rankx = 1) xx on a.article_no=xx.art_no and a.bundle_no=xx.tunit_no
+// left join
+// (select g.*, h.MS_penetration_date from
+// (SELECT distinct countrycode,store_no, store_desc FROM metro-bi-wb-inventory-s00.customization.labels1) g 
+// left join
+// (SELECT Country,Store_no, MIN(Date) AS MS_penetration_date 
+// FROM
+// (SELECT Date,Store_no,Country,SUM(GR_count) AS ss
+// FROM metro-bi-wb-inventory-s00.Country_dashboards.gin_usage
+// where tool='MStore'
+// GROUP BY Date, Store_no, Country) 
+// WHERE  ss > 1
+// GROUP BY  Country, Store_no) h
+// on  g.countryCode = h.Country  and g.store_no = h.Store_no) c on a.country=c.countrycode and a.store_no=c.store_no
+// left join
+// (select * from metro-bi-wb-inventory-s00.customization.Supplier_type) d   on a.Country=d.country_code and a.Supplier_no=d.supplier_number
+// left join 
+// (select e.*, f.MS_integration_date from
+// (SELECT distinct Country,GR_Type_no,GR_Type_name FROM metro-bi-wb-inventory-s00.Country_dashboards.gin_usage ) e 
+// left join
+// (SELECT Country,GR_Type_no, MIN(Date) AS MS_integration_date 
+// FROM
+// (SELECT Date,GR_Type_no,Country,SUM(GR_count) AS ss
+// FROM metro-bi-wb-inventory-s00.Country_dashboards.gin_usage
+// where tool='MStore'
+// GROUP BY Date, GR_Type_no, Country) 
+// WHERE  ss > 1
+// GROUP BY  Country, GR_Type_no) f
+// on  e.Country = f.Country  and e.GR_Type_no = f.GR_Type_no) m on a.Country=m.Country and a.GR_Type_no=m.GR_Type_no
 
+// `
 
-module.exports = { projectFor, bbd_operational0_XX, bbd_operational1_XX, bbd_operational2_1_XX, bbd_operational2_XX};
+module.exports = { projectFor, bbd_operational0_XX, bbd_operational1_XX, bbd_operational2_1_XX, bbd_operational2_XX, /*gin_operational_XX*/};
