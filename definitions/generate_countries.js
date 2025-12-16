@@ -27,7 +27,7 @@ countries.forEach((c) => {
         }
     }).query(bbd_operational2_1_XX(c));
 
-    publish(`bbd_operational2_${c.iso2}`, {
+    publish(`bbd_operational2_daily_${c.iso2}`, {
         type: "table", 
         schema: "Country_dashboards",
         bigquery: {
