@@ -4,12 +4,12 @@ const { bbd_operational0_XX, bbd_operational1_XX, bbd_operational2_1_XX, bbd_ope
 countries.forEach((c) => {
     publish(`bbd_operational0_${c.iso2}`, {
         type: "table", 
-        schema: "Country_dashboards"
+        schema: "temp_orchestration"
     }).query(bbd_operational0_XX(c));
 
     publish(`bbd_operational1_${c.iso2}`, {
         type: "table", 
-        schema: "Country_dashboards",
+        schema: "temp_orchestration",
         // ensure dependency on bbd_operational0_XX
         dependencies: [`bbd_operational0_${c.iso2}`],
         bigquery: {
@@ -20,7 +20,7 @@ countries.forEach((c) => {
 
     publish(`bbd_operational2_1_daily_${c.iso2}`, {
         type: "table", 
-        schema: "Country_dashboards",
+        schema: "temp_orchestration",
         bigquery: {
             partitionBy: "Date",
             //requirePartitionFilter: true
@@ -29,7 +29,7 @@ countries.forEach((c) => {
 
     publish(`bbd_operational2_daily_${c.iso2}`, {
         type: "table", 
-        schema: "Country_dashboards",
+        schema: "temp_orchestration",
         bigquery: {
             partitionBy: "Date",
             //requirePartitionFilter: true
