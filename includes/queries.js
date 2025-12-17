@@ -25,7 +25,7 @@ WITH
     FROM ${projectFor(c.internal)}.ingest_inventory.bbd_list bl
     INNER JOIN metro-bi-wb-inventory-s00.customization.bbd_country_timezones tz ON tz.countryCode = '${c.iso2}'
     WHERE DATE(bestBeforeDate) <= (CURRENT_DATE('Europe/Bucharest') - 3)
-    AND DATE(PARTITIONTIME) >= DATE('2024-01-01') -- year change
+    AND DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
   ),
 
   bbd_list_deleted AS (
@@ -37,7 +37,7 @@ WITH
     SELECT bc.* EXCEPT (changeDate), STRING(TIMESTAMP(FORMAT_TIMESTAMP("%F %T", TIMESTAMP(bc.changeDate), tz.timezone))) AS changeDate
     FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_checked\` bc
     INNER JOIN metro-bi-wb-inventory-s00.customization.bbd_country_timezones tz ON tz.countryCode = '${c.iso2}'
-    WHERE DATE(bc.PARTITIONTIME) >= DATE('2024-01-01') -- year change
+    WHERE DATE(bc.PARTITIONTIME) >= ${date_filter_var} -- year change
   ),
 
   bl_not_in_bc AS (
@@ -56,7 +56,7 @@ WITH
   bbd_missing AS (
     SELECT *
     FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_missing\`
-    WHERE DATE(PARTITIONTIME) >= DATE('2024-01-01') -- year change
+    WHERE DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
   ),
 
   bl_not_in_bc_not_in_bm AS (
@@ -89,7 +89,7 @@ WITH
 
   bc_distinct_ids AS (
     SELECT DISTINCT storeNumber, bbdCheckId FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_checked\`
-    WHERE DATE(PARTITIONTIME) >= DATE('2024-01-01') -- year change
+    WHERE DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
   ),
 
   bbd_list_in_bbd_checked_in_bbd_missing AS (
@@ -155,7 +155,7 @@ WITH
       FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_list\` bl
       INNER JOIN metro-bi-wb-inventory-s00.customization.bbd_country_timezones tz ON tz.countryCode = '${c.iso2}'
       WHERE
-        DATE(bl.PARTITIONTIME) >= DATE('2024-01-01') -- year change
+        DATE(bl.PARTITIONTIME) >= ${date_filter_var} -- year change
         AND DATE(bestBeforeDate) > (CURRENT_DATE('Europe/Bucharest') - 3)
     )
     )
@@ -205,8 +205,8 @@ WITH
     FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_checked\` bc
     INNER JOIN metro-bi-wb-inventory-s00.customization.bbd_country_timezones tz ON tz.countryCode = '${c.iso2}'
     WHERE
-      DATE(PARTITIONTIME) >= DATE('2024-01-01') -- year change
-      -- AND DATE(creationDate) >= DATE('2024-01-01')
+      DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
+      -- AND DATE(creationDate) >= ${date_filter_var}
       AND DATE(creationDate) <= (CURRENT_DATE('Europe/Bucharest')-1)
   ),
 
@@ -576,7 +576,7 @@ WITH
         AND bmr.activeFrom <= TIMESTAMP(bl.creationDate) AND TIMESTAMP(bl.creationDate) <= bmr.activeTo
         AND bmr.active = true
       WHERE
-        DATE(bl.PARTITIONTIME) >= DATE('2024-01-01') -- year change
+        DATE(bl.PARTITIONTIME) >= ${date_filter_var} -- year change
         AND DATE_SUB(DATE(bl.bestBeforeDate), INTERVAL (bmr.gracePeriod) DAY) > DATE(bl.changeDate)
         AND bl.logicallyDeleted = true
         AND ((NOT STARTS_WITH(creationDate, '200')) AND (NOT STARTS_WITH(creationDate, '201')) AND (NOT STARTS_WITH(creationDate, '2020'))
@@ -598,7 +598,7 @@ WITH
         ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS lastChangeUser,
     FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_list\` bl
     INNER JOIN metro-bi-wb-inventory-s00.customization.bbd_country_timezones tz ON tz.countryCode = '${c.iso2}'
-    WHERE DATE(bl.PARTITIONTIME) >= DATE('2024-01-01') -- year change
+    WHERE DATE(bl.PARTITIONTIME) >= ${date_filter_var} -- year change
   ),
 
   bbd_list_deleted AS (
@@ -609,7 +609,7 @@ WITH
     SELECT bc.* EXCEPT (changeDate), STRING(TIMESTAMP(FORMAT_TIMESTAMP("%F %T", TIMESTAMP(bc.changeDate), tz.timezone))) AS changeDate
     FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_checked\` bc
     INNER JOIN metro-bi-wb-inventory-s00.customization.bbd_country_timezones tz ON tz.countryCode = '${c.iso2}'
-    WHERE DATE(PARTITIONTIME) >= DATE('2024-01-01') -- year change
+    WHERE DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
       AND DATE(bestBeforeDate) <= (CURRENT_DATE('Europe/Bucharest') - 3)
   ),
 
@@ -627,7 +627,7 @@ WITH
   bbd_missing AS (
     SELECT *
     FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_missing\`
-    WHERE DATE(PARTITIONTIME) >= DATE('2024-01-01') -- year change
+    WHERE DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
   ),
 
   bl_not_in_bc_not_in_bm AS (
@@ -660,7 +660,7 @@ WITH
 
   bc_distinct_ids AS (
     SELECT DISTINCT storeNumber, bbdCheckId FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_checked\`
-    WHERE DATE(PARTITIONTIME) >= DATE('2024-01-01') -- year change
+    WHERE DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
   ),
 
   bbd_list_in_bbd_checked_in_bbd_missing AS (
@@ -725,7 +725,7 @@ WITH
         ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS lastChangeUser,
       FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_list\` bl
       INNER JOIN metro-bi-wb-inventory-s00.customization.bbd_country_timezones tz ON tz.countryCode = '${c.iso2}'
-      WHERE DATE(PARTITIONTIME) >= DATE('2024-01-01') -- year change
+      WHERE DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
         AND DATE(bestBeforeDate) > (CURRENT_DATE('Europe/Bucharest') - 3)
         AND ((NOT STARTS_WITH(creationDate, '200')) AND (NOT STARTS_WITH(creationDate, '201')) AND (NOT STARTS_WITH(creationDate, '2020'))
         AND (NOT STARTS_WITH(creationDate, '2021')) AND (NOT STARTS_WITH(creationDate, '2022')))
@@ -765,7 +765,7 @@ WITH
         ) AS rn,
         * FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_checked\`
       WHERE
-        DATE(PARTITIONTIME) >= DATE('2024-01-01') -- year change
+        DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
         AND DATE(PARTITIONTIME) <= (CURRENT_DATE('Europe/Bucharest')-1)
     )
     WHERE rn = 1
@@ -1069,7 +1069,7 @@ WITH
     FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_list\`
     WHERE 1=1
       -- (bbdSource IS NULL OR bbdSource != 'MARKDOWN')
-      AND DATE(PARTITIONTIME) >= DATE('2024-01-01') -- year change
+      AND DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
       AND (changeUser IS NULL OR changeUser != 'BBD_RULE_REFRESH')
       AND ((NOT STARTS_WITH(creationDate, '200')) AND (NOT STARTS_WITH(creationDate, '201')) AND (NOT STARTS_WITH(creationDate, '2020'))
         AND (NOT STARTS_WITH(creationDate, '2021')) AND (NOT STARTS_WITH(creationDate, '2022')))
@@ -1130,7 +1130,7 @@ WITH
         AND bmr.activeFrom <= TIMESTAMP(bm.creationDate) AND TIMESTAMP(bm.creationDate) <= bmr.activeTo
         AND bmr.active = true
     WHERE
-      DATE(bm.PARTITIONTIME) >= DATE('2024-01-01') -- year change
+      DATE(bm.PARTITIONTIME) >= ${date_filter_var} -- year change
       AND ((NOT STARTS_WITH(creationDate, '200')) AND (NOT STARTS_WITH(creationDate, '201')) AND (NOT STARTS_WITH(creationDate, '2020'))
         AND (NOT STARTS_WITH(creationDate, '2021')) AND (NOT STARTS_WITH(creationDate, '2022')))
       AND SUBSTR(creationDate, 1, 10) <= CAST(CURRENT_DATE('Europe/Bucharest')-1 AS STRING)
@@ -1177,7 +1177,7 @@ WITH
       *
     FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_checked\`
     WHERE
-      DATE(creationDate) >= DATE('2024-01-01') -- year change
+      DATE(creationDate) >= ${date_filter_var} -- year change
   ),
 
   bm_joined_bc AS (
@@ -1477,7 +1477,7 @@ WITH
       --   AND stock.bundleNo = articles.bundleNumber
       --   AND stock.variant = articles.variantNumber
       WHERE
-        PARTITIONTIME >= TIMESTAMP('2024-07-01')
+        PARTITIONTIME >= TIMESTAMP(${date_filter_var})
         AND DATE(PARTITIONTIME) <= CURRENT_DATE('Europe/Bucharest')-1
         AND datagroup = 'SYST'
     ) s
@@ -1495,7 +1495,7 @@ WITH
           ORDER BY bookingTimestamp DESC, sequence DESC) AS rn
       FROM \`${projectFor(c.internal)}.ingest_movie.stock_events\` stock
       WHERE
-        PARTITIONTIME >= TIMESTAMP('2024-07-01')
+        PARTITIONTIME >= TIMESTAMP(${date_filter_var})
         AND DATE(PARTITIONTIME) <= CURRENT_DATE('Europe/Bucharest')-1
         AND datagroup = 'MADO'
     ) s
@@ -1894,7 +1894,7 @@ WITH
 
   missing AS (
     SELECT * FROM metro-bi-wb-inventory-s00.Country_dashboards.bbd_operational2_1_daily_${c.iso2}
-    WHERE Date >= DATE('2025-01-01') -- year change
+    WHERE Date >= ${date_filter_var} -- year change
   ),
 
   departments AS (
@@ -1923,7 +1923,7 @@ WITH
 
   rows_generated AS (
     SELECT * FROM metro-bi-wb-inventory-s00.Country_dashboards.bbd_operational1_${c.iso2}
-    WHERE Date >= DATE('2025-01-01') -- year change
+    WHERE Date >= ${date_filter_var} -- year change
   ),
 
   rows_generated_aux AS (
@@ -1978,7 +1978,7 @@ WITH
         TIMESTAMP(FORMAT_TIMESTAMP("%F %T", TIMESTAMP(processingTimestamp), 'Europe/Amsterdam')) AS processingTimestamp,
       FROM \`${projectFor(c.internal)}.ingest_movie.stock_events\` stock
       WHERE
-        PARTITIONTIME >= TIMESTAMP('2024-07-01')
+        PARTITIONTIME >= TIMESTAMP(${date_filter_var})
         AND datagroup = 'SYST'
         -- AND locationId NOT IN (83,84,85,86)
     ) s
@@ -1995,7 +1995,7 @@ WITH
         TIMESTAMP(FORMAT_TIMESTAMP("%F %T", TIMESTAMP(processingTimestamp), 'Europe/Amsterdam')) AS processingTimestamp,
       FROM \`${projectFor(c.internal)}.ingest_movie.stock_events\` stock
       WHERE
-        PARTITIONTIME >= TIMESTAMP('2024-07-01')
+        PARTITIONTIME >= TIMESTAMP(${date_filter_var})
         AND datagroup = 'MADO'
         -- AND locationId NOT IN (83,84,85,86)
     ) s
@@ -2217,7 +2217,7 @@ WITH
               WHEN status IN ('ERROR', 'DONE') THEN 3
             END AS statusMapped,
           FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_check_results\`
-          WHERE DATE(PARTITIONTIME) >= DATE('2025-01-01') -- year change
+          WHERE DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
         )
       )
       WHERE rn = 1
@@ -2391,7 +2391,7 @@ WITH
         toolOrder, --, maxTool --41
         bbdRuleId
       FROM final6_removed_actions
-      WHERE Date >= Date('2023-01-01')
+      WHERE Date >= ${date_filter_var}
       AND Date <= CURRENT_DATE('Europe/Bucharest')-1
       -- AND storeNumber NOT IN (83,84,85,86)
     ) a
@@ -2705,7 +2705,7 @@ FROM (
         *,
         ROW_NUMBER() OVER (PARTITION BY storeNumber, id ORDER BY changeDate DESC) AS rn
       FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_list\`
-      WHERE DATE(PARTITIONTIME) >= DATE('2025-01-01') -- year change
+      WHERE DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
     )
     WHERE rn = 1
   ),
@@ -2716,7 +2716,7 @@ FROM (
         *,
         ROW_NUMBER() OVER (PARTITION BY storeNumber, bbdCheckId ORDER BY changeDate DESC) AS rn
       FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_checked\`
-      WHERE DATE(PARTITIONTIME) >= DATE('2025-01-01') -- year change
+      WHERE DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
     )
     WHERE rn = 1
   ),
@@ -2725,7 +2725,7 @@ FROM (
     SELECT
       storeNumber, bbdCheckId, SUM(quantity) AS quantity
     FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_check_results\`
-    WHERE DATE(PARTITIONTIME) >= DATE('2025-01-01') -- year change
+    WHERE DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
       AND status = 'DONE'
     GROUP BY 1, 2
   ),
@@ -2846,7 +2846,7 @@ FROM (
       AND NOT (current_state = 'to_be_checked' AND Syst_stock <= 0.1) -- added instead of the commented above on 26.02.2025
       AND NOT (Tool = 'bbd_checked_removed_from_shelf' AND Tool_new = 'bbd_checked_removed_from_shelf_pending' AND Syst_stock <= 0)
       AND NOT (Tool = 'bbd_to_be_checked' AND Day_expiry_counter < -1) -- should be < 0 but there were some cases in which the logicallyDeleted = true was put 1-2 days after the best before date day -- was -2 initially, changed to -1 on 13.03.2025
-      AND Date >= DATE('2025-01-01') -- year change
+      AND Date >= ${date_filter_var} -- year change
     )
   ),
 
@@ -2855,7 +2855,7 @@ FROM (
     FROM \`${projectFor(c.internal)}.ingest_inventory.bbd_list\` bll
     INNER JOIN bbd_merchandise_rules_${c.internal.toLowerCase()} bmrr ON
     bmrr.ruleId = bll.bbdRuleId
-    WHERE DATE(PARTITIONTIME) >= DATE('2025-01-01') -- year change
+    WHERE DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
     GROUP BY ALL
   ),
 
