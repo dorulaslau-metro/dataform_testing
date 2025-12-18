@@ -24,13 +24,15 @@ WITH
         ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS lastChangeUser,
     FROM ${projectFor(c.internal)}.ingest_inventory.bbd_list bl
     INNER JOIN metro-bi-wb-inventory-s00.customization.bbd_country_timezones tz ON tz.countryCode = '${c.iso2}'
-    WHERE DATE(bestBeforeDate) <= (CURRENT_DATE('Europe/Bucharest') - 3)
+    --- 2025-12-18 Doru: changed filter on bestBefore date from simply current_date - 3 to between current_date -365 and current_date - 3
+    WHERE DATE(bestBeforeDate) BETWEEN ${date_filter_var} AND (CURRENT_DATE('Europe/Bucharest') - 3)
     AND DATE(PARTITIONTIME) >= ${date_filter_var} -- year change
   ),
 
   bbd_list_deleted AS (
     SELECT * FROM bbd_list WHERE lastLogicallyDeleted = true
-    AND DATE(bestBeforeDate) <= (CURRENT_DATE('Europe/Bucharest') - 3)
+    --- 2025-12-18 Doru: changed filter on bestBefore date from simply current_date - 3 to between current_date -365 and current_date - 3
+    AND DATE(bestBeforeDate) BETWEEN ${date_filter_var} AND (CURRENT_DATE('Europe/Bucharest') - 3)
   ),
 
   bbd_checked AS (
@@ -164,7 +166,10 @@ WITH
       AND (changeUser IS NULL OR changeUser != 'BBD_RULE_REFRESH')
       AND ((NOT STARTS_WITH(creationDate, '200')) AND (NOT STARTS_WITH(creationDate, '201')) AND (NOT STARTS_WITH(creationDate, '2020'))
         AND (NOT STARTS_WITH(creationDate, '2021')) AND (NOT STARTS_WITH(creationDate, '2022')))
+      --- 2025-12-18 Doru: changed filter on creationDate date. Was implicitly between 2023-01-01 and today - 1
+      --- moved to be between today - 356 (or new selected time window) and today - 1
       AND SUBSTR(creationDate, 1, 10) <= CAST(CURRENT_DATE('Europe/Bucharest')-1 AS STRING)
+      AND SUBSTR(creationDate, 1, 10) >= CAST(${date_filter_var} AS STRING)
   ),
 
   ranked_bbd_list_${c.internal.toLowerCase()} AS (
@@ -185,7 +190,10 @@ WITH
     WHERE
       ((NOT STARTS_WITH(creationDate, '200')) AND (NOT STARTS_WITH(creationDate, '201')) AND (NOT STARTS_WITH(creationDate, '2020'))
         AND (NOT STARTS_WITH(creationDate, '2021')) AND (NOT STARTS_WITH(creationDate, '2022')))
+      --- 2025-12-18 Doru: changed filter on creationDate date. Was implicitly between 2023-01-01 and today - 1
+      --- moved to be between today - 356 (or new selected time window) and today - 1
       AND SUBSTR(creationDate, 1, 10) <= CAST(CURRENT_DATE('Europe/Bucharest')-1 AS STRING)
+      AND SUBSTR(creationDate, 1, 10) >= CAST(${date_filter_var} AS STRING)
   ),
 
   bbd_list_${c.internal.toLowerCase()} AS (
